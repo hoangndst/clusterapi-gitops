@@ -1,7 +1,7 @@
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
-  name: clusterapi-gitops
+  name: capi-gitops
   namespace: default
 spec:
   clusterNetwork:

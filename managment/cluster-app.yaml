@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: clusterapi-gitops
+  name: capi-gitops
 spec:
   destination:
     name: ''
