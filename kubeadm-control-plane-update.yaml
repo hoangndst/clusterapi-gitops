@@ -1,0 +1,133 @@
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  annotations:
+    cluster.x-k8s.io/cloned-from-groupkind: KubeadmControlPlaneTemplate.controlplane.cluster.x-k8s.io
+    cluster.x-k8s.io/cloned-from-name: quick-start-control-plane
+  creationTimestamp: "2023-10-20T17:14:10Z"
+  finalizers:
+  - kubeadm.controlplane.cluster.x-k8s.io
+  generation: 3
+  labels:
+    cluster.x-k8s.io/cluster-name: capi-quickstart
+    topology.cluster.x-k8s.io/owned: ""
+  name: capi-quickstart-n4rtj
+  namespace: capi-quickstart
+  ownerReferences:
+  - apiVersion: cluster.x-k8s.io/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Cluster
+    name: capi-quickstart
+    uid: 29f5d224-c2b9-4770-9ec2-a6c15ee402c3
+  resourceVersion: "7834"
+  uid: 612479ce-d8b7-4a9a-9a95-65e3b256ee59
+spec:
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      apiServer:
+        certSANs:
+        - localhost
+        - 127.0.0.1
+        - 0.0.0.0
+        - host.docker.internal
+        extraArgs:
+          admission-control-config-file: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+        extraVolumes:
+        - hostPath: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+          mountPath: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+          name: admission-pss
+          pathType: File
+          readOnly: true
+      controllerManager:
+        extraArgs:
+          enable-hostpath-provisioner: "true"
+      dns: {}
+      etcd:
+        local: {}
+      networking: {}
+      scheduler: {}
+    files:
+    - content: |
+        apiVersion: apiserver.config.k8s.io/v1
+        kind: AdmissionConfiguration
+        plugins:
+        - name: PodSecurity
+          configuration:
+            apiVersion: pod-security.admission.config.k8s.io/v1
+            kind: PodSecurityConfiguration
+            defaults:
+              enforce: "baseline"
+              enforce-version: "latest"
+              audit: "restricted"
+              audit-version: "latest"
+              warn: "restricted"
+              warn-version: "latest"
+            exemptions:
+              usernames: []
+              runtimeClasses: []
+              namespaces: [kube-system]
+      path: /etc/kubernetes/kube-apiserver-admission-pss.yaml
+    format: cloud-config
+    initConfiguration:
+      localAPIEndpoint: {}
+      nodeRegistration:
+        imagePullPolicy: IfNotPresent
+    joinConfiguration:
+      discovery: {}
+      nodeRegistration:
+        imagePullPolicy: IfNotPresent
+  machineTemplate:
+    infrastructureRef:
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      kind: DockerMachineTemplate
+      name: capi-quickstart-control-plane-v1-26-6
+      namespace: capi-quickstart
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: capi-quickstart
+        topology.cluster.x-k8s.io/owned: ""
+  replicas: 1
+  rolloutStrategy:
+    rollingUpdate:
+      maxSurge: 1
+    type: RollingUpdate
+  version: v1.26.6
+status:
+  conditions:
+  - lastTransitionTime: "2023-10-20T17:31:04Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2023-10-20T17:14:49Z"
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2023-10-20T17:14:12Z"
+    status: "True"
+    type: CertificatesAvailable
+  - lastTransitionTime: "2023-10-20T17:31:04Z"
+    status: "True"
+    type: ControlPlaneComponentsHealthy
+  - lastTransitionTime: "2023-10-20T17:31:04Z"
+    status: "True"
+    type: EtcdClusterHealthy
+  - lastTransitionTime: "2023-10-20T17:14:32Z"
+    status: "True"
+    type: MachinesCreated
+  - lastTransitionTime: "2023-10-20T17:28:49Z"
+    status: "True"
+    type: MachinesReady
+  - lastTransitionTime: "2023-10-20T17:30:14Z"
+    status: "True"
+    type: MachinesSpecUpToDate
+  - lastTransitionTime: "2023-10-20T17:31:04Z"
+    status: "True"
+    type: Resized
+  initialized: true
+  observedGeneration: 3
+  ready: true
+  readyReplicas: 1
+  replicas: 1
+  selector: cluster.x-k8s.io/cluster-name=capi-quickstart,cluster.x-k8s.io/control-plane
+  unavailableReplicas: 0
+  updatedReplicas: 1
+  version: v1.26.6

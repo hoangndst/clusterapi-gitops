@@ -59,13 +59,14 @@ For Auto Upgrade Kubernetes Version
 1. Tạo cụm capi-quickstart manual với version 1.26.0:
 
    ```bash
-   clusterctl generate cluster capi-quickstart --flavor development \
+   clusterctl -n capi-quickstart generate cluster capi-quickstart --flavor development \
        --kubernetes-version v1.26.0 \
        --control-plane-machine-count=1 \
        --worker-machine-count=1 \
        > capi-quickstart.yaml
    kubectl apply -f capi-quickstart.yaml
-   clusterctl get kubeconfig capi-quickstart > capi-quickstart.kubeconfig
+   clusterctl -n capi-quickstart get kubeconfig capi-quickstart > capi-quickstart.kubeconfig
+   curl https://raw.githubusercontent.com/projectcalico/calico/v3.26.3/manifests/calico.yaml -O
    kubectl --kubeconfig=capi-quickstart.kubeconfig apply -f calico.yaml
    ```
 
@@ -139,7 +140,7 @@ For Auto Upgrade Kubernetes Version
    labels:
        cluster.x-k8s.io/cluster-name: capi-quickstart
        topology.cluster.x-k8s.io/owned: ""
-   name: capi-quickstart-control-plane-v1.26.10
+   name: capi-quickstart-control-plane-v1.26.6
    namespace: capi-quickstart
    ownerReferences:
    - apiVersion: cluster.x-k8s.io/v1beta1
@@ -151,7 +152,7 @@ For Auto Upgrade Kubernetes Version
    spec:
    template:
        spec:
-       customImage: kindest/node:v1.26.10
+       customImage: kindest/node:v1.26.6
        extraMounts:
        - containerPath: /var/run/docker.sock
            hostPath: /var/run/docker.sock
@@ -159,7 +160,7 @@ For Auto Upgrade Kubernetes Version
    ```
 
    ```bash
-   kubectl apply -f capi-quickstart-control-plane-template.yaml
+   kubectl apply -f control-plane-template.yaml
    ```
 
 6. Lấy ra `KubeadmControlPlane` của cụm capi-quickstart và sửa đổi thành phiên bản mới hơn và `MachineTemplate` mới tạo ở trên:
@@ -171,13 +172,18 @@ For Auto Upgrade Kubernetes Version
         infrastructureRef:
             apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
             kind: DockerMachineTemplate
-            name: capi-quickstart-control-plane-v1.26.10
+            name: capi-quickstart-control-plane-v1.26.6
             namespace: capi-quickstart
+    rolloutStrategy:
+        rollingUpdate:
+            maxSurge: 1
+        type: RollingUpdate
+    version: v1.26.6
     ...
     selector: cluster.x-k8s.io/cluster-name=capi-quickstart,cluster.x-k8s.io/control-plane
     unavailableReplicas: 0
     updatedReplicas: 1
-    version: v1.26.10
+    version: v1.26.6
    ```
 7. Apply lại `KubeadmControlPlane` mới:
    ```bash
@@ -186,57 +192,53 @@ For Auto Upgrade Kubernetes Version
 
 8. Kiểm tra trạng thái của cụm kubernetes:
     ```bash
-    [3m23.302s][~/Desktop/sprint/upgrade-k8s-version]$ clusterctl describe cluster capi-quickstart -n capi-quickstart 
-
+    [0.115s][master][~/Desktop/sprint/upgrade-k8s-version/clusterapi-gitops]$ clusterctl describe cluster capi-quickstart -n capi-quickstart
     NAME                                                           READY  SEVERITY  REASON                   SINCE  MESSAGE                                                       
-    Cluster/capi-quickstart                                        False  Warning   RollingUpdateInProgress  51s    Rolling 1 replicas with outdated spec (1 replicas up to date)  
-    ├─ClusterInfrastructure - DockerCluster/capi-quickstart-4hnhh  True                                      7h4m                                                                  
-    ├─ControlPlane - KubeadmControlPlane/capi-quickstart-56sjp     False  Warning   RollingUpdateInProgress  51s    Rolling 1 replicas with outdated spec (1 replicas up to date)  
-    │ └─2 Machines...                                              True                                      7h4m   See capi-quickstart-56sjp-tqg8x, capi-quickstart-56sjp-vw7nc   
+    Cluster/capi-quickstart                                        False  Warning   RollingUpdateInProgress  6s     Rolling 1 replicas with outdated spec (1 replicas up to date)  
+    ├─ClusterInfrastructure - DockerCluster/capi-quickstart-f2wrr  True                                      10m                                                                   
+    ├─ControlPlane - KubeadmControlPlane/capi-quickstart-n4rtj     False  Warning   RollingUpdateInProgress  6s     Rolling 1 replicas with outdated spec (1 replicas up to date)  
+    │ ├─Machine/capi-quickstart-n4rtj-jmr9g                        True                                      10m                                                                   
+    │ └─Machine/capi-quickstart-n4rtj-m6g2f                        False  Info      WaitingForBootstrapData  8s     1 of 2 completed                                               
     └─Workers                                                                                                                                                                      
-    └─MachineDeployment/capi-quickstart-md-0-jjpfw               True                                      7h1m                                                                  
-        └─Machine/capi-quickstart-md-0-jjpfw-pknr9-c9pnc           True                                      7h3m                                                                  
-    [0.108s][~/Desktop/sprint/upgrade-k8s-version]$ 
+    └─MachineDeployment/capi-quickstart-md-0-l5z9b               True                                      8m53s                                                                 
+        └─Machine/capi-quickstart-md-0-l5z9b-p7hvd-rvp2c           True                                      9m37s 
     ```
 9. Kiếm tra Machine (ở đây là giả lập container) ta thấy đã tạo ra một container control-plane mới:
     ```bash
-    [4m1.817s][~/Desktop/sprint/upgrade-k8s-version]$ docker ps
-    CONTAINER ID   IMAGE                                COMMAND                  CREATED              STATUS              PORTS                              NAMES
-    00cca00a34a4   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   About a minute ago   Up About a minute   0/tcp, 127.0.0.1:32770->6443/tcp   capi-quickstart-56sjp-tqg8x
-    4a53a5ce967d   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   7 hours ago          Up 7 hours                                             capi-quickstart-md-0-jjpfw-pknr9-c9pnc
-    936c030ace0c   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   7 hours ago          Up 7 hours          0/tcp, 127.0.0.1:32769->6443/tcp   capi-quickstart-56sjp-vw7nc
-    eeacab420c3a   kindest/haproxy:v20230510-486859a6   "haproxy -W -db -f /…"   7 hours ago          Up 7 hours          0/tcp, 0.0.0.0:32768->6443/tcp     capi-quickstart-lb
-    71133f48c69a   kindest/node:v1.27.1                 "/usr/local/bin/entr…"   18 hours ago         Up 7 hours          127.0.0.1:40603->6443/tcp          kind-control-plane
-    [62ms][~/Desktop/sprint/upgrade-k8s-version]$ 
+    [40ms][master][~/Desktop/sprint/upgrade-k8s-version/clusterapi-gitops]$ docker ps
+    CONTAINER ID   IMAGE                                COMMAND                  CREATED          STATUS          PORTS                              NAMES
+    fcbf443a183c   kindest/node:v1.26.6                 "/usr/local/bin/entr…"   19 seconds ago   Up 11 seconds   0/tcp, 127.0.0.1:32772->6443/tcp   capi-quickstart-n4rtj-m6g2f
+    513e013a5cfa   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   9 minutes ago    Up 9 minutes                                       capi-quickstart-md-0-l5z9b-p7hvd-rvp2c
+    b22f67405369   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   10 minutes ago   Up 10 minutes   0/tcp, 127.0.0.1:32771->6443/tcp   capi-quickstart-n4rtj-jmr9g
+    21f147f1e106   kindest/haproxy:v20230510-486859a6   "haproxy -W -db -f /…"   10 minutes ago   Up 10 minutes   0/tcp, 0.0.0.0:32768->6443/tcp     capi-quickstart-lb
+    59231b74a366   kindest/node:v1.27.1                 "/usr/local/bin/entr…"   29 minutes ago   Up 29 minutes   127.0.0.1:33867->6443/tcp          kind-control-plane
     ```
     Check các nodes của cụm:
     ```bash
-    [4m11.790s][~/Desktop/sprint/upgrade-k8s-version]$ kubectl --kubeconfig=capi-quickstart.kubeconfig get nodes 
-    NAME                                     STATUS     ROLES           AGE    VERSION
-    capi-quickstart-56sjp-tqg8x              NotReady   control-plane   61s    v1.26.0
-    capi-quickstart-56sjp-vw7nc              Ready      control-plane   7h4m   v1.26.0
-    capi-quickstart-md-0-jjpfw-pknr9-c9pnc   Ready      <none>          7h3m   v1.26.0
-    [98ms][~/Desktop/sprint/upgrade-k8s-version]$ 
+    [0.158s][master][~/Desktop/sprint/upgrade-k8s-version/clusterapi-gitops]$ k --kubeconfig=capi-quickstart.kubeconfig get nodes   
+    NAME                                     STATUS     ROLES           AGE   VERSION
+    capi-quickstart-md-0-l5z9b-p7hvd-rvp2c   Ready      <none>          11m   v1.26.0
+    capi-quickstart-n4rtj-jmr9g              Ready      control-plane   11m   v1.26.0
+    capi-quickstart-n4rtj-m6g2f              NotReady   control-plane   93s   v1.26.6
+    
     ```
 10. Sau khi upgrade xong:
     ```bash
-    [1m7.394s][~/Desktop/sprint/upgrade-k8s-version]$ clusterctl describe cluster capi-quickstart -n capi-quickstart 
+    [1.018s][master][~/Desktop/sprint/upgrade-k8s-version/clusterapi-gitops]$ clusterctl describe cluster capi-quickstart -n capi-quickstart      
     NAME                                                           READY  SEVERITY  REASON  SINCE  MESSAGE 
-    Cluster/capi-quickstart                                        True                     10s             
-    ├─ClusterInfrastructure - DockerCluster/capi-quickstart-4hnhh  True                     7h6m            
-    ├─ControlPlane - KubeadmControlPlane/capi-quickstart-56sjp     True                     10s             
-    │ └─Machine/capi-quickstart-56sjp-tqg8x                        True                     2m13s           
+    Cluster/capi-quickstart                                        True                     9s              
+    ├─ClusterInfrastructure - DockerCluster/capi-quickstart-f2wrr  True                     17m             
+    ├─ControlPlane - KubeadmControlPlane/capi-quickstart-n4rtj     True                     9s              
+    │ └─Machine/capi-quickstart-n4rtj-g4t7z                        True                     2m27s           
     └─Workers                                                                                               
-    └─MachineDeployment/capi-quickstart-md-0-jjpfw               True                     20s             
-        └─Machine/capi-quickstart-md-0-jjpfw-pknr9-c9pnc           True                     7h5m            
-    [116ms][~/Desktop/sprint/upgrade-k8s-version]$ 
+    └─MachineDeployment/capi-quickstart-md-0-l5z9b               True                     3m40s           
+        └─Machine/capi-quickstart-md-0-l5z9b-p7hvd-rvp2c           True                     15m   
 
-
-    [82ms][~/Desktop/sprint/upgrade-k8s-version]$ docker ps
-    CONTAINER ID   IMAGE                                COMMAND                  CREATED         STATUS         PORTS                              NAMES
-    00cca00a34a4   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   3 minutes ago   Up 3 minutes   0/tcp, 127.0.0.1:32770->6443/tcp   capi-quickstart-56sjp-tqg8x
-    4a53a5ce967d   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   7 hours ago     Up 7 hours                                        capi-quickstart-md-0-jjpfw-pknr9-c9pnc
-    eeacab420c3a   kindest/haproxy:v20230510-486859a6   "haproxy -W -db -f /…"   7 hours ago     Up 7 hours     0/tcp, 0.0.0.0:32768->6443/tcp     capi-quickstart-lb
-    71133f48c69a   kindest/node:v1.27.1                 "/usr/local/bin/entr…"   18 hours ago    Up 7 hours     127.0.0.1:40603->6443/tcp          kind-control-plane
-    [38ms][~/Desktop/sprint/upgrade-k8s-version]$ 
+    [121ms][master][~/Desktop/sprint/upgrade-k8s-version/clusterapi-gitops]$ docker ps
+    CONTAINER ID   IMAGE                                COMMAND                  CREATED          STATUS          PORTS                              NAMES
+    7b3efefdaa71   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   4 minutes ago    Up 4 minutes    0/tcp, 127.0.0.1:32773->6443/tcp   capi-quickstart-n4rtj-g4t7z
+    513e013a5cfa   kindest/node:v1.26.0                 "/usr/local/bin/entr…"   16 minutes ago   Up 16 minutes                                      capi-quickstart-md-0-l5z9b-p7hvd-rvp2c
+    21f147f1e106   kindest/haproxy:v20230510-486859a6   "haproxy -W -db -f /…"   17 minutes ago   Up 17 minutes   0/tcp, 0.0.0.0:32768->6443/tcp     capi-quickstart-lb
+    59231b74a366   kindest/node:v1.27.1                 "/usr/local/bin/entr…"   36 minutes ago   Up 36 minutes   127.0.0.1:33867->6443/tcp          kind-control-plane
     ```
+ 

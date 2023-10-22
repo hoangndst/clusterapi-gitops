@@ -1,0 +1,27 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: DockerMachineTemplate
+metadata:
+  annotations:
+    cluster.x-k8s.io/cloned-from-groupkind: DockerMachineTemplate.infrastructure.cluster.x-k8s.io
+    cluster.x-k8s.io/cloned-from-name: quick-start-control-plane
+  creationTimestamp: "2023-10-20T17:27:56Z"
+  generation: 1
+  labels:
+    cluster.x-k8s.io/cluster-name: capi-quickstart
+    topology.cluster.x-k8s.io/owned: ""
+  name: capi-quickstart-control-plane-h29gx
+  namespace: capi-quickstart
+  ownerReferences:
+  - apiVersion: cluster.x-k8s.io/v1beta1
+    kind: Cluster
+    name: capi-quickstart
+    uid: 29f5d224-c2b9-4770-9ec2-a6c15ee402c3
+  resourceVersion: "7140"
+  uid: 29901f40-5088-427e-a4ff-86a6ab76a5ce
+spec:
+  template:
+    spec:
+      customImage: kindest/node:v1.26.0
+      extraMounts:
+      - containerPath: /var/run/docker.sock
+        hostPath: /var/run/docker.sock
