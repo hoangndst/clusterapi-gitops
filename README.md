@@ -48,7 +48,7 @@ For Auto Upgrade Kubernetes Version
 
 > Kỹ thuật nâng cấp truyền thống, được gọi là `inline upgrade`, bao gồm việc nâng cấp các thành phần Kubernetes tại chỗ. Cách tiếp cận này có một số rủi ro, trong đó có nhiều rủi ro dẫn đến việc nâng cấp không thành công trên một node, đòi hỏi phải chuyển các pods và apps sang các node khác một cách bất ngờ. Nếu các node khác cũng ở trong tình trạng tương tự, một loạt các lỗi nâng cấp có thể khiến một cụm bị sập. Nếu lỗi nâng cấp liên quan đến một loạt bản vá lỗi và cấu hình thủ công đã được áp dụng theo thời gian, thì có thể rất khó để khắc phục sự cố và đưa nó trở lại trạng thái tốt.
 
-> Cluster API giúp nâng cấp an toàn hơn và giảm tác động của chúng đến dung lượng cụm. Cluster API thực hiện nâng cấp luân phiên, bao gồm việc cung cấp lần lượt các node mới, được nâng cấp và di chuyển các pods từ các node cũ hơn đến chúng. Cách tiếp cận này giúp duy trì nhiều dung lượng cụm nhất có thể trong quá trình nâng cấp. Trong trường hợp xấu nhất, khi nút mới không được cung cấp và thêm thành công, thì workload đang chạy sẽ không bị ảnh hưởng vì các pods chỉ được di chuyển khi nút mới tham gia cụm.
+> Cluster API giúp nâng cấp an toàn hơn và giảm tác động của chúng đến dung lượng cụm. Cluster API thực hiện nâng cấp luân phiên, bao gồm việc cung cấp lần lượt các node mới, được nâng cấp và di chuyển các pods từ các node cũ hơn đến chúng. Cách tiếp cận này giúp duy trì nhiều dung lượng cụm nhất có thể trong quá trình nâng cấp. Trong trường hợp xấu nhất, khi node mới không được cung cấp và thêm thành công, thì workload đang chạy sẽ không bị ảnh hưởng vì các pods chỉ được di chuyển khi node mới tham gia cụm.
 
 <div align="center">
     <img src="https://www.oreilly.com/api/v2/epubs/9781098126865/files/assets/cdkm_0401.png" width="500px">
@@ -241,4 +241,22 @@ For Auto Upgrade Kubernetes Version
     21f147f1e106   kindest/haproxy:v20230510-486859a6   "haproxy -W -db -f /…"   17 minutes ago   Up 17 minutes   0/tcp, 0.0.0.0:32768->6443/tcp     capi-quickstart-lb
     59231b74a366   kindest/node:v1.27.1                 "/usr/local/bin/entr…"   36 minutes ago   Up 36 minutes   127.0.0.1:33867->6443/tcp          kind-control-plane
     ```
- 
+
+### Khảo sát cách upgrade version của Google Cloud
+Upgrade Cluster: những điều sẽ xảy ra khi Google tự động nâng cấp cụm của hoặc khi nâng cấp thủ công. 
+- Zonal clusters chỉ có một `control-plane` duy nhất. Trong quá trình nâng cấp, khối lượng công việc của bạn tiếp tục chạy nhưng bạn không thể triển khai khối lượng công việc mới, sửa đổi khối lượng công việc hiện có hoặc thực hiện các thay đổi khác đối với cấu hình của cụm cho đến khi quá trình nâng cấp hoàn tất. 
+- Regional clusters có nhiều bản sao của `control-plane` và mỗi lần chỉ có một bản sao được nâng cấp theo thứ tự không xác định. Trong quá trình nâng cấp, cụm vẫn có tính khả dụng cao và mỗi bản sao `control-plane` chỉ không khả dụng khi nó đang được nâng cấp.
+#### Node pool upgrades
+- Quá trình khi Google tự động nâng cấp node hoặc khi nâng cấp nhóm node thủ công.
+    - Với nâng cấp node pool GKE, ta có thể chọn giữa hai cách nâng cấp tích hợp, có thể định cấu hình, trong đó có thể điều chỉnh quy trình nâng cấp dựa trên nhu cầu của môi trường cụm của mình. Để tìm hiểu thêm về chiến lược nâng cấp `surge` và `blue-green`, hãy xem []()
+    - Trong quá trình nâng cấp node pool, không thể thay đổi cấu hình cụm trừ khi hủy nâng cấp.
+- Trong quá trình nâng cấp node pool, cách nâng cấp các node tùy thuộc vào option và cách bạn định cấu hình nó. Tuy nhiên, các bước cơ bản vẫn giữ nguyên. Để nâng cấp một node, GKE sẽ xóa Pod khỏi node đó để có thể nâng cấp node đó.
+- Khi một node được nâng cấp, điều sau đây sẽ xảy ra với Pod:
+    1. Node được `cordoned` để Kubernetes không lên lịch cho các Pod mới trên đó.
+    2. Nút sau đó sẽ bị `drained`, nghĩa là các Pod sẽ bị loại bỏ. Đối với các bản nâng cấp `surge`, GKE tôn trọng cài đặt `PodDisruptionBudget` và `GracefulTerminationPeriod` của Pod trong tối đa một giờ. Với các nâng cấp `blue-green`, thời gian này có thể được kéo dài nếu định cấu hình thời gian lâu hơn.
+    3. Control-plane sắp xếp lại các Pod do bộ điều khiển quản lý lên các nút khác. Các Pods không thể lên lịch lại sẽ ở trong giai đoạn `Pending` cho đến khi chúng có thể được lên lịch lại.
+Quá trình nâng cấp node pool có thể mất tới vài giờ tùy thuộc vào cách nâng cấp, số lượng nút và cấu hình khối lượng công việc của chúng.
+
+- Surge upgrades
+    - Theo mặc định, Surge upgrades được sử dụng để nâng cấp node pool. Nó sử dụng phương pháp cuộn để nâng cấp các nút. Cách này phù hợp nhất cho các ứng dụng có thể xử lý các thay đổi gia tăng, không gây gián đoạn. Với chiến lược này, các nút được nâng cấp trong một cửa sổ cuộn. Với cài đặt này, bạn có thể thay đổi số lượng nút có thể được nâng cấp cùng một lúc và mức độ gián đoạn của việc nâng cấp, tìm ra sự cân bằng tối ưu giữa tốc độ và sự gián đoạn cho nhu cầu của môi trường của bạn.
+    
