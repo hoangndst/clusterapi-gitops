@@ -257,10 +257,13 @@ Upgrade Cluster: những điều sẽ xảy ra khi Google tự động nâng c�
     3. Control-plane sắp xếp lại các Pod do bộ điều khiển quản lý lên các nút khác. Các Pods không thể lên lịch lại sẽ ở trong giai đoạn `Pending` cho đến khi chúng có thể được lên lịch lại.
 Quá trình nâng cấp node pool có thể mất tới vài giờ tùy thuộc vào cách nâng cấp, số lượng nút và cấu hình khối lượng công việc của chúng.
 
-- [**Surge upgrades**]((https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#surge))
+- [**Surge upgrades**](https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#surge)
     - Theo mặc định, Surge upgrades được sử dụng để nâng cấp node pool. Nó sử dụng phương pháp cuộn để nâng cấp các nút. Cách này phù hợp nhất cho các ứng dụng có thể xử lý các thay đổi gia tăng, không gây gián đoạn. Với cách này, các nút được nâng cấp trong một cửa sổ cuộn. Với cách này có thể thay đổi số lượng nút có thể được nâng cấp cùng một lúc và mức độ gián đoạn của việc nâng cấp, tìm ra sự cân bằng tối ưu giữa tốc độ và sự gián đoạn cho nhu cầu của môi trường.
 - [**Blue-green upgrades**](https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#blue-green-upgrade-strategy)
     - Cách tiếp cận thay thế là nâng cấp blue-green, trong đó hai bộ môi trường (môi trường cũ và mới) được duy trì cùng một lúc, giúp việc khôi phục trở nên dễ dàng nhất có thể. Blue-green tiêu tốn nhiều tài nguyên hơn và tốt hơn cho các ứng dụng nhạy cảm hơn với các thay đổi. Với cách này, khối lượng công việc được di chuyển dần dần từ môi trường "blue" ban đầu sang môi trường "green" mới và có thời gian chuẩn bị để xác thực chúng bằng cấu hình mới. Nếu cần, khối lượng công việc có thể nhanh chóng được khôi phục về môi trường "blue" hiện có.
+
+#### Các rủi ro có thể xảy ra
+- kube-apiserver unhealthy after control plane upgrade
 
 ### Khảo sát cách upgrade version của Azure
 [Upgrade Azure Cluster](https://learn.microsoft.com/en-us/azure/aks/tutorial-kubernetes-upgrade-cluster?tabs=azure-cli#upgrade-a-cluster):
@@ -270,5 +273,17 @@ Quá trình nâng cấp node pool có thể mất tới vài giờ tùy thuộc 
 - Quá trình này lặp lại cho đến khi tất cả các nút trong cụm được nâng cấp.
 - Khi kết thúc quá trình, nút đệm cuối cùng sẽ bị xóa, duy trì số lượng nút tác nhân hiện có và cân bằng vùng.
 
-Cách này tương tự như cách [**Surge upgrades**]((https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#surge)) node pool của Google Cloud.
-  
+Cách này tương tự như cách [**Surge upgrades**](https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#surge) node pool của Google Cloud.
+
+
+#### [Recovering from a failure state](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/#recovering-from-a-failure-state)
+Nếu nâng cấp kubeadm không thành công và không roll back, chẳng hạn như do tắt đột ngột trong khi thực thi, ta có thể chạy lại nâng cấp kubeadm.
+Để khôi phục, có thể chạy áp dụng nâng cấp kubeadm --force mà không cần thay đổi phiên bản mà cụm đang chạy.
+
+Trong quá trình upgrade kubeadm sẽ ghi bản backup vào `/etc/kubernetes/tmp`:
+- `kubeadm-backup-etcd-<date>-<time>`
+- `kubeadm-backup-manifests-<date>-<time>`
+
+`kubeadm-backup-etcd` chứa bản sao lưu dữ liệu etcd local cho control-plane đó. Trong trường hợp nâng cấp etcd không thành công và nếu tính năng khôi phục tự động không hoạt động, có thể được khôi phục thủ công trong `/var/lib/etcd`.
+
+`kubeadm-backup-manifests` chứa bản sao lưu của tệp kê khai Pod tĩnh cho nút control-plane. Trong trường hợp nâng cấp không thành công và nếu tính năng khôi phục tự động không hoạt động, có thể được khôi phục thủ công trong `/etc/kubernetes/manifests`.
