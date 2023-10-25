@@ -262,17 +262,13 @@ Quá trình nâng cấp node pool có thể mất tới vài giờ tùy thuộc 
 - [**Blue-green upgrades**](https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#blue-green-upgrade-strategy)
     - Cách tiếp cận thay thế là nâng cấp blue-green, trong đó hai bộ môi trường (môi trường cũ và mới) được duy trì cùng một lúc, giúp việc khôi phục trở nên dễ dàng nhất có thể. Blue-green tiêu tốn nhiều tài nguyên hơn và tốt hơn cho các ứng dụng nhạy cảm hơn với các thay đổi. Với cách này, khối lượng công việc được di chuyển dần dần từ môi trường "blue" ban đầu sang môi trường "green" mới và có thời gian chuẩn bị để xác thực chúng bằng cấu hình mới. Nếu cần, khối lượng công việc có thể nhanh chóng được khôi phục về môi trường "blue" hiện có.
 
+### Khảo sát cách upgrade version của Azure
+[Upgrade Azure Cluster](https://learn.microsoft.com/en-us/azure/aks/tutorial-kubernetes-upgrade-cluster?tabs=azure-cli#upgrade-a-cluster):
+ các node AKS được `cordoned` và `drained` cẩn thận để giảm thiểu mọi gián đoạn có thể xảy ra đối với các ứng dụng đang chạy. Trong quá trình này, AKS thực hiện các bước sau:
+- Thêm một node đệm mới (hoặc nhiều node được định cấu hình ở max surge) vào cụm chạy phiên bản Kubernetes được chỉ định.
+- Cordons và drains một trong các nút cũ để giảm thiểu sự gián đoạn đối với các ứng dụng đang chạy. Nếu đang sử dụng mức tăng tối đa (max surge), nó sẽ khoanh vùng và tiêu hao nhiều nút cùng lúc với số lượng nút đệm được chỉ định.
+- Quá trình này lặp lại cho đến khi tất cả các nút trong cụm được nâng cấp.
+- Khi kết thúc quá trình, nút đệm cuối cùng sẽ bị xóa, duy trì số lượng nút tác nhân hiện có và cân bằng vùng.
 
-
-#### [Surge Upgrade](https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#surge)
-If cost optimization is important for you and your workload can tolerate being shut down in less than 60 minutes, we recommend choosing surge upgrades for your node pools.
-
-- Surge upgrades are optimal for:
-    - if you want to optimize for the speed of upgrades.
-    - if workloads are more tolerant of disruptions, where graceful termination up to 60 minutes is acceptable.
-    - if you want to control costs by minimizing the creation of new nodes.
-
-You can change how many nodes GKE attempts to upgrade at once by changing the surge upgrade parameters on a node pool. Surge upgrades reduce disruption to your workloads during cluster maintenance and also allow you to control the number of nodes upgraded in parallel. Surge upgrades also work with the Cluster Autoscaler to prevent changes to nodes that are being upgraded.
-
-Surge upgrade behavior is determined by two settings: `max-surge-upgrade` and `max-unavailable-upgrade`
+Cách này tương tự như cách [**Surge upgrades**]((https://cloud.google.com/kubernetes-engine/docs/concepts/node-pool-upgrade-strategies#surge)) node pool của Google Cloud.
   
